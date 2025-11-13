@@ -44,21 +44,11 @@ final class PersonController extends Controller
         );
     }
 
-    public function listApi(): JsonResponse
-    {
-        return $this->transactionService->handleWithDataTable(
-            fn() => $this->personService->getListData()
-        );
-    }
-
     public function store(PersonStoreRequest $request): JsonResponse
     {
         $foto = $request->file('foto');
 
-        // MANUAL TRANSACTION IMPLEMENTATION
-        DB::beginTransaction(); // EXPLICIT BEGIN TRANSACTION
-
-        try {
+        return $this->transactionService->handleWithTransaction(function () use ($request, $foto) {
             $payload = $request->only([
                 'nama',
                 'jk',
@@ -86,25 +76,8 @@ final class PersonController extends Controller
                 }
             }
 
-            DB::commit(); // EXPLICIT COMMIT
-
             return $this->responseService->successResponse('Data berhasil dibuat', $created, 201);
-
-        } catch (QueryException $e) {
-            DB::rollBack(); // EXPLICIT ROLLBACK
-            
-            return $this->responseService->errorResponse(
-                'Terjadi kesalahan database: ' . $e->getMessage(), 
-                500
-            );
-        } catch (Exception $e) {
-            DB::rollBack(); // EXPLICIT ROLLBACK
-            
-            return $this->responseService->errorResponse(
-                'Terjadi kesalahan: ' . $e->getMessage(), 
-                500
-            );
-        }
+        });
     }
 
     public function update(PersonUpdateRequest $request, string $id): JsonResponse
@@ -116,10 +89,7 @@ final class PersonController extends Controller
 
         $foto = $request->file('foto');
 
-        // MANUAL TRANSACTION IMPLEMENTATION
-        DB::beginTransaction(); // EXPLICIT BEGIN TRANSACTION
-
-        try {
+        return $this->transactionService->handleWithTransaction(function () use ($request, $data, $foto) {
             $payload = $request->only([
                 'nama',
                 'jk',
@@ -147,25 +117,8 @@ final class PersonController extends Controller
                 }
             }
 
-            DB::commit(); // EXPLICIT COMMIT
-
             return $this->responseService->successResponse('Data berhasil diperbarui', $updatedData);
-
-        } catch (QueryException $e) {
-            DB::rollBack(); // EXPLICIT ROLLBACK
-            
-            return $this->responseService->errorResponse(
-                'Terjadi kesalahan database: ' . $e->getMessage(), 
-                500
-            );
-        } catch (Exception $e) {
-            DB::rollBack(); // EXPLICIT ROLLBACK
-            
-            return $this->responseService->errorResponse(
-                'Terjadi kesalahan: ' . $e->getMessage(), 
-                500
-            );
-        }
+        });
     }
 
     public function show(string $id): JsonResponse
@@ -181,73 +134,113 @@ final class PersonController extends Controller
         });
     }
 
-    public function destroy(string $id): JsonResponse
+    /**
+     * METHOD TEST STORE - UNTUK DEBUGGING
+     */
+    public function testStore(): JsonResponse
     {
-        $data = $this->personService->findById($id);
-        if (!$data) {
-            return $this->responseService->errorResponse('Data tidak ditemukan', 404);
-        }
-
-        // MANUAL TRANSACTION IMPLEMENTATION
-        DB::beginTransaction(); // EXPLICIT BEGIN TRANSACTION
-
         try {
-            // Jika ada file foto, handle delete file melalui FileUploadService
-            if ($data->foto) {
-                // Anda perlu menambahkan method deleteFile di PersonService atau FileUploadService
-                // $this->personService->deleteFile($data->foto);
-            }
+            DB::beginTransaction();
 
-            $data->delete();
+            // Data test yang sesuai dengan struktur table
+            $testData = [
+                'uuid_person' => \Illuminate\Support\Str::uuid(),
+                'nama' => 'JOHN DOE TEST',
+                'jk' => 'L',
+                'tempat_lahir' => 'JAKARTA',
+                'tanggal_lahir' => '1990-01-15',
+                'kewarganegaraan' => 'INDONESIA',
+                'golongan_darah' => 'A',
+                'nik' => '1234567890' . rand(100000, 999999), // NIK unik
+                'nomor_kk' => '9876543210' . rand(100000, 999999),
+                'alamat' => 'JL. TEST NO. 123',
+                'rt' => '001',
+                'rw' => '002',
+                'id_desa' => '1101012001', // Sesuaikan dengan format char(10)
+                'npwp' => '123456789012345',
+                'nomor_hp' => '081234567890',
+                'email' => 'test' . rand(1000, 9999) . '@test.com'
+            ];
 
-            DB::commit(); // EXPLICIT COMMIT
+            // Gunakan PersonService untuk create
+            $created = $this->personService->create($testData);
 
-            return $this->responseService->successResponse('Data berhasil dihapus');
+            DB::commit();
+
+            return $this->responseService->successResponse(
+                'Test data berhasil dibuat', 
+                [
+                    'id_person' => $created->id_person,
+                    'uuid_person' => $created->uuid_person,
+                    'nama' => $created->nama,
+                    'nik' => $created->nik
+                ],
+                201
+            );
 
         } catch (QueryException $e) {
-            DB::rollBack(); // EXPLICIT ROLLBACK
+            DB::rollBack();
             
             return $this->responseService->errorResponse(
-                'Terjadi kesalahan database: ' . $e->getMessage(), 
+                'Database Error: ' . $e->getMessage(),
                 500
             );
         } catch (Exception $e) {
-            DB::rollBack(); // EXPLICIT ROLLBACK
+            DB::rollBack();
             
             return $this->responseService->errorResponse(
-                'Terjadi kesalahan: ' . $e->getMessage(), 
+                'Error: ' . $e->getMessage(),
                 500
             );
         }
     }
 
-    public function findByNik(Request $request): JsonResponse
+    /**
+     * METHOD TEST LIST - UNTUK DEBUGGING
+     */
+    public function testList(): JsonResponse
     {
-        $request->validate([
-            'nik' => 'required|string|max:16'
-        ]);
+        try {
+            $persons = $this->personService->getListData();
 
-        return $this->transactionService->handleWithShow(function () use ($request) {
-            $person = $this->personService->findByNik($request->nik);
+            return $this->responseService->successResponse(
+                'Data test berhasil diambil',
+                [
+                    'total' => $persons->count(),
+                    'data' => $persons->take(5) // Ambil 5 data pertama
+                ]
+            );
 
-            if (!$person) {
-                return $this->responseService->errorResponse('Data dengan NIK tersebut tidak ditemukan', 404);
-            }
-
-            return $this->responseService->successResponse('Data berhasil ditemukan', $person);
-        });
+        } catch (Exception $e) {
+            return $this->responseService->errorResponse(
+                'Error: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 
-    public function getByUuid(string $uuid): JsonResponse
+    /**
+     * METHOD TEST DETAIL - UNTUK DEBUGGING
+     */
+    public function testDetail($id): JsonResponse
     {
-        return $this->transactionService->handleWithShow(function () use ($uuid) {
-            $person = $this->personService->getPersonDetailByUuid($uuid);
+        try {
+            $person = $this->personService->findById($id);
 
             if (!$person) {
                 return $this->responseService->errorResponse('Data tidak ditemukan', 404);
             }
 
-            return $this->responseService->successResponse('Data berhasil diambil', $person);
-        });
+            return $this->responseService->successResponse(
+                'Detail data berhasil diambil',
+                $person
+            );
+
+        } catch (Exception $e) {
+            return $this->responseService->errorResponse(
+                'Error: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 }

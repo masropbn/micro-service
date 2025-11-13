@@ -32,7 +32,16 @@ Route::prefix('person')->group(function () {
         ->name('person.store');
     Route::post('update/{id}', [PersonController::class, 'update'])
         ->name('person.update');
+
+    Route::get('test-store', [PersonController::class, 'testStore'])
+        ->name('person.test-store');
+    Route::get('test-list', [PersonController::class, 'testList'])
+        ->name('person.test-list');
+    Route::get('test-detail/{id}', [PersonController::class, 'testDetail'])
+        ->name('person.test-detail');
 });
+
+
 
 Route::prefix('sdm')->group(function () {
     Route::get('/', [PersonSdmController::class, 'index'])

@@ -19,19 +19,16 @@ final class Person extends Model implements Auditable
     }
 
     public $incrementing = true;
-
     public $timestamps = false;
 
     protected $table = 'person';
-
     protected $primaryKey = 'id_person';
-
-    protected $keyType = 'int';
-
+    protected $keyType = 'int'; // Tetap int untuk Eloquent
     protected $dateFormat = 'Y-m-d';
 
     protected $fillable = [
         'id_person',
+        'uuid_person', // TAMBAHKAN INI
         'nama',
         'jk',
         'tempat_lahir',
@@ -56,7 +53,7 @@ final class Person extends Model implements Auditable
 
     protected $casts = [
         'id_person' => 'integer',
-        'id_desa' => 'integer',
+        'id_desa' => 'string', // UBAH: karena di table char(10)
         'tanggal_lahir' => 'date',
     ];
 
@@ -74,16 +71,31 @@ final class Person extends Model implements Auditable
     public function setNamaAttribute($value): void
     {
         $this->attributes['nama'] = strtoupper(trim(strip_tags($value)));
+        
+        // Truncate jika lebih dari 50 karakter
+        if (strlen($this->attributes['nama']) > 50) {
+            $this->attributes['nama'] = substr($this->attributes['nama'], 0, 47) . '...';
+        }
     }
 
     public function setTempatLahirAttribute($value): void
     {
         $this->attributes['tempat_lahir'] = trim(strip_tags($value));
+        
+        // Truncate jika lebih dari 30 karakter
+        if (strlen($this->attributes['tempat_lahir']) > 30) {
+            $this->attributes['tempat_lahir'] = substr($this->attributes['tempat_lahir'], 0, 27) . '...';
+        }
     }
 
     public function setAlamatAttribute($value): void
     {
         $this->attributes['alamat'] = trim(strip_tags($value));
+        
+        // Truncate jika lebih dari 100 karakter
+        if (strlen($this->attributes['alamat']) > 100) {
+            $this->attributes['alamat'] = substr($this->attributes['alamat'], 0, 97) . '...';
+        }
     }
 
     public function setRtAttribute($value): void
@@ -129,6 +141,11 @@ final class Person extends Model implements Auditable
     public function setKewarganegaraanAttribute($value): void
     {
         $this->attributes['kewarganegaraan'] = $value ? trim($value) : 'Indonesia';
+        
+        // Truncate jika lebih dari 30 karakter
+        if (strlen($this->attributes['kewarganegaraan']) > 30) {
+            $this->attributes['kewarganegaraan'] = substr($this->attributes['kewarganegaraan'], 0, 27) . '...';
+        }
     }
 
     public function setGolonganDarahAttribute($value): void
