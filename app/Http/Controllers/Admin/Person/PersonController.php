@@ -130,6 +130,10 @@ final class PersonController extends Controller
     }
 
     public function destroy(string $id){
-        
+        return $this->transactionService->handleWithTransaction(function () use($id){
+            $deleteData = $this->personService->deleteData($id);
+
+            return $this->responseService->successResponse('Data berhasil dihapus', $deleteData);
+        });
     }
 }
