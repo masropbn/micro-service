@@ -128,4 +128,8 @@ final class PersonController extends Controller
             return $this->responseService->successResponse('Data berhasil diambil', $data);
         });
     }
+
+    public function destroy(string $id){
+        
+    }
 }
